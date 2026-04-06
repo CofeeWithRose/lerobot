@@ -212,9 +212,9 @@ def setRobotState(robot, target_state, move_ranges, expect_duration_ms=2000):
 def stand_up(robot, move_ranges, expect_duration_ms=3000):
     print("正在将机械臂移动到站立状态...")
     safe_position = {
-        "shoulder_pan": 0.7,  # 朝向中间
+        "shoulder_pan": 0.5,  # 朝向中间
         "shoulder_lift": 0.5, # 尽量抬高肩部 1为抬高向前
-        "elbow_flex": 0.3,    # 尽量伸直肘部 0为伸直
+        "elbow_flex": 0.5,    # 尽量伸直肘部 0为伸直
         "wrist_flex": 0.8,    # 尽量向下手腕 0为向上
         "wrist_roll": 0.5,
         "gripper": 0.5,  # 打开
@@ -233,14 +233,24 @@ if elbow_flex_range is not None:
     # action = {"elbow_flex.pos": target_pos}
     # send_action_timed(robot, action, expect_duration_ms=500, move_ranges=move_ranges)     
     stand_up(robot, move_ranges, expect_duration_ms=500)  
+
+    normalized_action = { "shoulder_pan": 0.9 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+
+    normalized_action = { "elbow_flex": 0.7 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+
     normalized_action = { "gripper": 0.0 }  # 归一化目标值，0.0 对应负方向极限
     send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
     
-    normalized_action = { "gripper": 0.0, "elbow_flex": 0.5, "shoulder_pan": 0.0 }  # 归一化目标值，0.0 对应负方向极限
+    normalized_action = { "gripper": 0.0, "elbow_flex": 0.5, "shoulder_pan": 0.2 }  # 归一化目标值，0.0 对应负方向极限
     send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
     
     normalized_action = { "gripper": 0.3}  # 归一化目标值，0.0 对应负方向极限
     send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  # 每次移动后等待0.5秒  
+    
+    normalized_action = { "shoulder_pan": 0.5 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
     print("移动完成！")
 
 setRobotState(robot, robot_init_state, move_ranges)  # 恢复初始状态
