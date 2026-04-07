@@ -222,6 +222,91 @@ def stand_up(robot, move_ranges, expect_duration_ms=3000):
     send_action_timed_with_normalized(robot, safe_position, expect_duration_ms, move_ranges=move_ranges)
     print("机械臂已站立！")
 
+
+import time
+import random
+
+def dance_party(robot, move_ranges, duration_sec=120):
+    """
+    让机械臂跳舞，持续指定的秒数。
+    """
+    print(f"音乐起！机械臂开始跳舞，预计持续 {duration_sec} 秒...")
+    
+    start_time = time.time()
+    end_time = start_time + duration_sec
+    
+    # 定义几个基础舞步姿态
+    poses = [
+        # 姿态A：向左挥手
+        {"shoulder_pan": 0.2, "shoulder_lift": 0.7, "elbow_flex": 0.3, "wrist_flex": 0.5, "wrist_roll": 0.8, "gripper": 0.8},
+        # 姿态B：向右挥手
+        {"shoulder_pan": 0.8, "shoulder_lift": 0.7, "elbow_flex": 0.3, "wrist_flex": 0.5, "wrist_roll": 0.2, "gripper": 0.8},
+        # 姿态C：向下迪斯科
+        {"shoulder_pan": 0.5, "shoulder_lift": 0.2, "elbow_flex": 0.8, "wrist_flex": 0.8, "wrist_roll": 0.5, "gripper": 0.2},
+        # 姿态D：展开双臂
+        {"shoulder_pan": 0.5, "shoulder_lift": 0.5, "elbow_flex": 0.1, "wrist_flex": 0.3, "wrist_roll": 0.5, "gripper": 0.9}
+    ]
+
+    step_count = 0
+    while time.time() < end_time:
+        # 1. 选择下一个舞步（按顺序或随机）
+        current_pose = poses[step_count % len(poses)]
+        
+        # 2. 为了让舞蹈更灵动，给每个关节加一点微小的随机偏移
+        dynamic_pose = {k: max(0, min(1, v + random.uniform(-0.05, 0.05))) for k, v in current_pose.items()}
+        
+        # 3. 设置节奏感：快慢结合 (例如每4拍切换一次速度)
+        if (step_count // 4) % 2 == 0:
+            beat_ms = 400  # 快节奏
+        else:
+            beat_ms = 800  # 慢节奏
+
+        # 4. 执行动作
+        send_action_timed_with_normalized(
+            robot, 
+            dynamic_pose, 
+            expect_duration_ms=beat_ms, 
+            move_ranges=move_ranges
+        )
+        
+        step_count += 1
+        
+        # 打印进度（可选）
+        if step_count % 10 == 0:
+            remaining = int(end_time - time.time())
+            print(f"舞蹈进行中... 剩余 {remaining} 秒")
+
+    # 舞蹈结束，回到站立姿态（安全位置）
+    print("舞蹈结束，正在恢复初始状态...")
+    # stand_up(robot, move_ranges, expect_duration_ms=2000)
+
+def pick():
+    stand_up(robot, move_ranges, expect_duration_ms=500)  
+
+    normalized_action = { "shoulder_pan": 0.9 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+
+    normalized_action = { "elbow_flex": 0.75, "shoulder_lift": 0.55 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+
+    normalized_action = { "gripper": 0.2 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+    
+    normalized_action = { "elbow_flex": 0.5, "shoulder_pan": 0.2 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
+
+    normalized_action = { "elbow_flex": 0.65,"shoulder_lift": 0.55 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)
+    
+    normalized_action = { "gripper": 0.3,  }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  # 每次移动后等待0.5秒  
+    
+    normalized_action = { "shoulder_pan": 0.5, "shoulder_lift": 0.5, "elbow_flex": 0.5 }  # 归一化目标值，0.0 对应负方向极限
+    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
+    print("移动完成！")
+
+
+
 robot = initRobot()
 move_ranges = getAllMotorMoveRange(robot)
 robot_init_state = getRobotState(robot)
@@ -232,26 +317,12 @@ if elbow_flex_range is not None:
     # target_pos = elbow_flex_range[0]  # 负方向的极限位置
     # action = {"elbow_flex.pos": target_pos}
     # send_action_timed(robot, action, expect_duration_ms=500, move_ranges=move_ranges)     
-    stand_up(robot, move_ranges, expect_duration_ms=500)  
 
-    normalized_action = { "shoulder_pan": 0.9 }  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
+    # 调用函数：开启2分钟的舞蹈
+    # dance_party(robot, move_ranges, duration_sec=120)
+    pick()
 
-    normalized_action = { "elbow_flex": 0.7 }  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
-
-    normalized_action = { "gripper": 0.0 }  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  
     
-    normalized_action = { "gripper": 0.0, "elbow_flex": 0.5, "shoulder_pan": 0.2 }  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
-    
-    normalized_action = { "gripper": 0.3}  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges)  # 每次移动后等待0.5秒  
-    
-    normalized_action = { "shoulder_pan": 0.5 }  # 归一化目标值，0.0 对应负方向极限
-    send_action_timed_with_normalized(robot, normalized_action, expect_duration_ms=500, move_ranges=move_ranges) 
-    print("移动完成！")
 
 setRobotState(robot, robot_init_state, move_ranges)  # 恢复初始状态
 robot.disconnect()
