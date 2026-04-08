@@ -12,7 +12,8 @@ def initRobot():
     print("正在初始化机械臂...")
     config = SO101FollowerConfig(
     id="my_awesome_follower_arm",
-    port="COM4",
+    # port="COM4",
+    port="/dev/tty.usbmodem5B140325321",
     use_degrees=True,
     max_relative_target=8.0,  # 限制单次相对目标，避免“跳变”导致冲击
     )
