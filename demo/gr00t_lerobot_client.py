@@ -41,6 +41,8 @@ _ARM_JOINT_NAMES = (
     "wrist_roll",
 )
 _GRIPPER_KEY = "gripper.pos"
+_GRIPPER_RAD_LOW = -0.174533   # gripper fully closed (rad)
+_GRIPPER_RAD_HIGH = 1.74533    # gripper fully open (rad)
 
 
 @dataclass
@@ -83,7 +85,12 @@ class Gr00TLerobotAdapter:
         return np.deg2rad(q_deg).astype(np.float32)
 
     def get_gripper_norm(self, observation: dict) -> float:
-        return float(np.clip(observation.get(_GRIPPER_KEY, 0.0) / 100.0, 0.0, 1.0))
+        """Convert gripper percent (0-100) to normalized value (0-1) via radian range."""
+        percent = observation.get(_GRIPPER_KEY, 0.0)
+        angle = _GRIPPER_RAD_LOW + (percent / 100.0) * (_GRIPPER_RAD_HIGH - _GRIPPER_RAD_LOW)
+        return float(np.clip(
+            (angle - _GRIPPER_RAD_LOW) / (_GRIPPER_RAD_HIGH - _GRIPPER_RAD_LOW), 0.0, 1.0
+        ))
 
     def get_camera_frame(self, observation: dict, camera_key: str) -> np.ndarray:
         if camera_key in observation:
@@ -126,17 +133,23 @@ class Gr00TLerobotAdapter:
             q_target = np.clip(q_target, _ARM_LIMITS_LOW, _ARM_LIMITS_HIGH)
 
             gripper_norm = float(np.clip(actions["gripper_position"][0, step_idx, 0], 0.0, 1.0))
-            joint_action = {
+            # Denormalize gripper: norm -> radian -> percent
+            g_angle = gripper_norm * (_GRIPPER_RAD_HIGH - _GRIPPER_RAD_LOW) + _GRIPPER_RAD_LOW
+            g_angle = float(np.clip(g_angle, _GRIPPER_RAD_LOW, _GRIPPER_RAD_HIGH))
+            g_percent = ((g_angle - _GRIPPER_RAD_LOW) / (_GRIPPER_RAD_HIGH - _GRIPPER_RAD_LOW)) * 100.0
+
+            # Send arm and gripper separately to avoid max_relative_target
+            # clamping the gripper when arm joints have large deltas
+            arm_action = {
                 f"{name}.pos": float(value)
                 for name, value in zip(_ARM_JOINT_NAMES, np.rad2deg(q_target), strict=True)
             }
-            joint_action[_GRIPPER_KEY] = gripper_norm * 100.0
-
-            self.robot.send_action(joint_action)
+            self.robot.send_action(arm_action)
+            self.robot.send_action({_GRIPPER_KEY: g_percent})
 
             if self.cfg.print_actions:
                 print(f"  [arm]     {np.round(q_target, 4)}")
-                print(f"  [gripper] {gripper_norm:.4f}")
+                print(f"  [gripper] norm={gripper_norm:.4f} rad={g_angle:.4f} pct={g_percent:.1f}")
 
             q = q_target
             time.sleep(1.0 / self.cfg.control_freq)
@@ -156,9 +169,11 @@ def run_control_loop(robot: Robot, client: PolicyClient, cfg: Gr00TLerobotClient
 
     while True:
         t0 = time.time()
-        gr00t_obs, _ = adapter.build_gr00t_observation()
+        gr00t_obs, q_observed = adapter.build_gr00t_observation()
         actions, _ = client.get_action(gr00t_obs)
-        q = adapter.execute_action_chunk(actions, q)
+        # Use real observed joint positions as the base for delta actions,
+        # instead of accumulated q which may drift from reality.
+        q = adapter.execute_action_chunk(actions, q_observed)
 
         step += 1
         print(f"[INFO] Step {step} | joints: {q.round(4)} | elapsed: {time.time() - t0:.2f}s")
